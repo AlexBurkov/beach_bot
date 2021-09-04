@@ -217,6 +217,9 @@ class Game(object):
         rows = open("history_payments.txt").read().split('\n')
         people = {}
         for row in rows:
+            arr = row.split(' ')
+            if len(arr) != 4:
+                continue
             paymentDate, user, amount, description = row.split(' ')[:4]
             amount = float(amount)
             self.data[user.strip()]["payments"].append([datetime.datetime.strptime(paymentDate.strip(), '%d-%m-%Y').date(), amount, description])
@@ -465,8 +468,8 @@ class BeachBot(object):
 
 if __name__ == "__main__":
     ENV = json.load(open(".env"))
-    bot = telebot.TeleBot(ENV["telegramToken"])
-    # bot = telebot.TeleBot(ENV["testToken"])
+    # bot = telebot.TeleBot(ENV["telegramToken"])
+    bot = telebot.TeleBot(ENV["testToken"])
     myBot = BeachBot(bot)
 
     @bot.message_handler(content_types=['text'])
