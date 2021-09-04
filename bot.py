@@ -14,19 +14,30 @@ import random
 import datetime
 from functools import cmp_to_key
 
-
 ENV = {}
 
 class User(object):
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, json_data):
+        self.name = json_data["name"]
+        self.aliases = json_data.get("aliases", [])
+        self.is_official = json_data.get("official", False)
+        self.telegramUsername = json_data.get("username", None)
+        self.telegramUserId = json_data.get("username", None)
+
         self.rating = 1400
         self.wonGames = 0
         self.lostGames = 0
         self.historyRatings = []
-        self.aliases = []
-        self.telegramUsername = None
-        self.telegramUserId = None
+
+    # def __init__(self, name):
+    #     self.name = name
+    #     self.rating = 1400
+    #     self.wonGames = 0
+    #     self.lostGames = 0
+    #     self.historyRatings = []
+    #     self.aliases = []
+    #     self.telegramUsername = None
+    #     self.telegramUserId = None
 
 class Game(object):
     def __init__(self):
@@ -148,7 +159,7 @@ class Game(object):
             self.data[winnerB]["history_ratings"].append(self.data[winnerB]["rating"])
             self.data[loserA]["history_ratings"].append(self.data[loserA]["rating"])
             self.data[loserB]["history_ratings"].append(self.data[loserB]["rating"])
-            
+
     def getPlot(self, name):
         ratings = []
         for i, rating in enumerate(self.data[name]["history_ratings"]):
@@ -157,8 +168,9 @@ class Game(object):
         plt.title(name)
         x, scores = zip(*ratings)
         plt.plot(x, scores)
-        plt.savefig(name + ".png")
-        return name + ".png"
+        filename = "files/images/" + name + ".png"
+        plt.savefig(filename)
+        return filename
 
     def getRatings(self):
         sortedMembers = sorted(self.data.values(), key=lambda item: item["rating"], reverse=True)
@@ -218,7 +230,9 @@ class Game(object):
         result = ""
         for user in self.data.keys():
             user_balance = 0
-            for date, amount in self.data[user]["payments"]:
+            print(self.data[user]["payments"])
+            for payment_data in self.data[user]["payments"]:
+                paymentDate, amount, description = payment_data
                 user_balance += amount
             if user in self.officialMembers:
                 result += user + " " + str(round(user_balance)) + "\n"
@@ -314,20 +328,26 @@ class Tournament(object):
 
         return battle_team
 
-
 class BeachBot(object):
     def __init__(self, bot):
         self.bot = bot
         self.beachBot = Game()
         self.beachBot.processRatings()
         self.beachBot.readPayments()
-        # self.beachBot.print_balance()
 
+        self.read_users()
         self.states = {}
         self.players = []
 
+    def read_users(self):
+        self.users = {}
+        users = json.load(open("members.json"))
+        for name in users:
+            data = users[name]
+            data["name"] = name
+            self.users[name] = User(data)
 
-    def processCreatingGame(self, message):
+    def process_creating_game(self, message):
         if message.from_user.username != "AlexBurkov":
             return
         msg = message.text.lower().strip()
@@ -400,8 +420,7 @@ class BeachBot(object):
             markup.add("Завершить день")
             bot.send_message(message.chat.id, str(battle), reply_markup=markup)
             self.states[message.chat.id] = "creating_game_wait_for_battle"
-
-            
+            return
 
         # if self.states[message.chat.id] == "creating_game_wait_for_players":
         #     players = msg.split(" ")
@@ -410,32 +429,14 @@ class BeachBot(object):
 
     def processMessage(self, message):
         try:
-            self.processCreatingGame(message)
+            self.process_creating_game(message)
             
             if message.text.lower().strip() == "бот опрос":
                 bot.send_poll(message.chat.id, "Когда играем на следующей неделе?", [ "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Не играю на этой неделе" ], is_anonymous=False, allows_multiple_answers=True, reply_to_message_id=message.id)
 
-            if message.text.lower().strip() in [ "бот баланс" ]:
+            if message.text.lower().strip() in [ "бот платежи" ]:
                 bot.send_message(message.chat.id, self.beachBot.history_balance("Антонов"))
 
-            if message.text.lower().strip() in [ "бот", "bot" ]:
-                if message.from_user.username != "AlexBurkov":
-                    return
-
-                bot.send_message(message.from_user.id, datetime.date.today().strftime("%d-%m-%Y"))
-                return
-
-                markup = types.ReplyKeyboardMarkup(row_width=2)
-                itembtn1 = types.KeyboardButton('Команда 1')
-                itembtn2 = types.KeyboardButton('Команда 2')
-                itembtn3 = types.KeyboardButton('Отмена')
-                markup.add(itembtn1, itembtn2, itembtn3)
-                # bot.send_message(message.from_user.id, "Кто победил?", reply_markup=markup)
-                bot.send_message(message.from_user.id, message.from_user.username)
-                
-                # bot.reply_to(message, message.chat.id)
-                # bot.send_message(message.chat.id, message.chat.id)
-                # bot.send_message(message.chat.id, message.user.id)
             if message.text.lower() in [ "бот привет", "бот, привет", "бот,привет", "привет бот", "привет, бот", "привет,бот" ]:
                 markup = types.ReplyKeyboardRemove(selective=False)
                 if not message.from_user.username:
@@ -444,7 +445,7 @@ class BeachBot(object):
                 else:
                     bot.reply_to(message, "Привет, " + message.from_user.username, reply_markup=markup)
                     print(str(message.from_user.id) + " -> " + message.from_user.username)
-            if message.text.lower() == "бот общий баланс":
+            if message.text.lower() in ["бот общий баланс", "боб", "bob"]:
                 bot.reply_to(message, self.beachBot.all_balance())
             if message.text.lower() == "обнови":
                 self.beachBot.processRatings()
@@ -457,20 +458,15 @@ class BeachBot(object):
                 bot.reply_to(message, self.beachBot.getWinRate())
             elif message.text.lower().startswith("график"):
                 name = message.text.split(" ")[1]
-                bot.send_photo(message.chat.id, photo=open(self.beachBot.getPlot(name), 'rb'), reply_to_message_id=message.id)
+                bot.send_photo(message.chat.id, photo=open(self.beachBot.getPlot(name.title()), 'rb'), reply_to_message_id=message.id)
         except Exception as e:
             # bot.send_message(message.chat.id, "Что-то пошло не так, если вы хотели вызвать бота, проверьте команду")
             print(e)
 
 if __name__ == "__main__":
-    # T = Tournament(["Бурков", "Наташа", "Калужин", "Шавейников", "Антонов"])
-    # for z in range(10):
-    #     battle = T.get_battle()
-    #     T.add_battle(battle)
-
-
     ENV = json.load(open(".env"))
     bot = telebot.TeleBot(ENV["telegramToken"])
+    # bot = telebot.TeleBot(ENV["testToken"])
     myBot = BeachBot(bot)
 
     @bot.message_handler(content_types=['text'])
