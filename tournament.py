@@ -7,29 +7,40 @@ class Tournament(object):
         self.players = players
         self.games = {}
         self.missedRound = {}
-        self.lastLoosers = []
+        self.lastLosers = []
         self.battleSets = {}
         self.team_sets = {}
         self.teams_last_round = {}
         self.current_round = 0
 
-    def add_battle(self, battle_team):
+    def get_team_hash(self, team):
+        return ( min(team[0], team[1]), max(team[0], team[1]) )
+
+    def get_battle_hash(self, team1, team2):
+        team1_hash = self.get_team_hash(team1)
+        team2_hash = self.get_team_hash(team2)
+        return ( min(team1_hash, team2_hash), max(team1_hash, team2_hash) )
+
+    def add_battle(self, winners, losers):
         self.current_round += 1
-        self.battles.append(battle_team)
+        self.battles.append((winners, losers))
 
+        battle_hash = self.get_battle_hash(winners, losers)
+        self.battleSets[battle_hash] = self.battleSets.get(battle_hash, 0) + 1
 
-        self.battleSets[battle_team] = self.battleSets.get(battle_team, 0) + 1
-        self.teams_last_round[battle_team[0]] = self.current_round
-        self.teams_last_round[battle_team[1]] = self.current_round
+        self.teams_last_round[self.get_team_hash(winners)] = self.current_round
+        self.teams_last_round[self.get_team_hash(losers)] = self.current_round
         
         for player in self.players[:4]:
             self.games[player] = self.games.get(player, 0) + 1
         
         for player in self.players[4:]:
             self.missedRound[player] = self.current_round
-        print("loose: " + battle_team[0][0] + " " + battle_team[0][1])
-        print("\n")
-        self.lastLoosers = [battle_team[0][0], battle_team[0][1]]
+
+        self.lastLosers = losers
+
+    def get_battles_history(self):
+        return self.battles
 
     def get_battle(self):
         def cmp_by_order_playing(p1, p2):
@@ -39,10 +50,10 @@ class Tournament(object):
             if self.missedRound.get(p1, 100) != self.missedRound.get(p2, 100):
                 return self.missedRound.get(p2, 100) - self.missedRound.get(p1, 100)
 
-            if p1 in self.lastLoosers and p2 not in self.lastLoosers:
+            if p1 in self.lastLosers and p2 not in self.lastLosers:
                 return 1
 
-            if p2 in self.lastLoosers and p1 not in self.lastLoosers:
+            if p2 in self.lastLosers and p1 not in self.lastLosers:
                 return -1
 
             return 0
