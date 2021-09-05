@@ -150,6 +150,8 @@ class Game(object):
         rows = open("history_payments.txt").read().split('\n')
         people = {}
         for row in rows:
+            if len(row.strip()) < 2:
+                continue
             arr = row.split('\t')
             if len(arr) != 4:
                 raise "Payment doesn't have 4 fields"
