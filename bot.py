@@ -216,4 +216,8 @@ if __name__ == "__main__":
         myBot.processMessage(message)
         
     print("bot is started")
-    bot.polling()
+    while True:
+        try:
+            bot.polling()
+        except Exception as e:
+            print(e)
